@@ -51,6 +51,7 @@ RUN apt-get update \
     libyaml-dev \
     locales \
     lsb-release \
+    # maven \
     openssl \
     pigz \
     pkg-config \

@@ -1,25 +1,16 @@
-FROM cgr.dev/chainguard/wolfi-base:latest
-
-LABEL org.opencontainers.image.source="https://github.com/some-natalie/kubernoodles"
-LABEL org.opencontainers.image.path="images/wolfi.Dockerfile"
-LABEL org.opencontainers.image.title="wolfi"
-LABEL org.opencontainers.image.description="A Chainguard Wolfi based runner image for GitHub Actions"
-LABEL org.opencontainers.image.authors="Natalie Somersall (@some-natalie)"
-LABEL org.opencontainers.image.licenses="MIT"
-LABEL org.opencontainers.image.documentation="https://github.com/some-natalie/kubernoodles/README.md"
+FROM cgr.dev/chainguard/wolfi-base:latest AS build
 
 # Arguments
 ARG TARGETPLATFORM
-ARG RUNNER_VERSION=2.321.0
+ARG RUNNER_VERSION=2.322.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.6.2
-ARG DOTNET_VERSION=7
+ARG DOTNET_VERSION=8
 
 # Set up the non-root user (runner)
 RUN addgroup -S runner && adduser -S runner -G runner
 
 # Install software
-RUN apk update \
-  && apk add --no-cache \
+RUN apk add --no-cache \
   aspnet-${DOTNET_VERSION}-runtime \
   bash \
   build-base \
@@ -29,6 +20,7 @@ RUN apk update \
   dumb-init \
   git \
   gh \
+  helm \
   icu \
   jq \
   krb5-libs \
@@ -62,7 +54,6 @@ RUN export ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
   && rm runner.tar.gz
 
 # remove bundled nodejs and symlink to system nodejs
-RUN rm /home/runner/externals/node16/bin/node && ln -s /usr/bin/node /home/runner/externals/node16/bin/node
 RUN rm /home/runner/externals/node20/bin/node && ln -s /usr/bin/node /home/runner/externals/node20/bin/node
 
 # Install container hooks
@@ -70,10 +61,23 @@ RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-c
   && unzip ./runner-container-hooks.zip -d ./k8s \
   && rm runner-container-hooks.zip
 
-ENV RUNNER_MANUALLY_TRAP_SIG=1
-ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
-
 # configure directory permissions; ref https://github.com/actions/runner-images/blob/main/images/ubuntu/scripts/build/configure-system.sh
 RUN chmod -R 777 /opt /usr/share
 
+# squash it!
+FROM scratch AS final
+
+LABEL org.opencontainers.image.source="https://github.com/some-natalie/kubernoodles"
+LABEL org.opencontainers.image.path="images/wolfi.Dockerfile"
+LABEL org.opencontainers.image.title="wolfi"
+LABEL org.opencontainers.image.description="A Chainguard Wolfi based runner image for GitHub Actions"
+LABEL org.opencontainers.image.authors="Natalie Somersall (@some-natalie)"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.documentation="https://github.com/some-natalie/kubernoodles/README.md"
+
+ENV RUNNER_MANUALLY_TRAP_SIG=1
+ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
+
 USER runner
+
+COPY --from=build / /

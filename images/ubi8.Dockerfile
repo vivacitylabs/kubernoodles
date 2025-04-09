@@ -1,16 +1,8 @@
-FROM registry.access.redhat.com/ubi8/ubi-init:8.10
-
-LABEL org.opencontainers.image.source="https://github.com/some-natalie/kubernoodles"
-LABEL org.opencontainers.image.path="images/ubi8.Dockerfile"
-LABEL org.opencontainers.image.title="ubi8"
-LABEL org.opencontainers.image.description="A RedHat UBI 8 based runner image for GitHub Actions"
-LABEL org.opencontainers.image.authors="Natalie Somersall (@some-natalie)"
-LABEL org.opencontainers.image.licenses="MIT"
-LABEL org.opencontainers.image.documentation="https://github.com/some-natalie/kubernoodles/README.md"
+FROM registry.access.redhat.com/ubi8/ubi-init:8.10 AS build
 
 # Arguments
 ARG TARGETPLATFORM
-ARG RUNNER_VERSION=2.321.0
+ARG RUNNER_VERSION=2.322.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.6.2
 
 # Shell setup
@@ -42,7 +34,7 @@ RUN dnf update -y \
 
 # This is to mimic the OpenShift behaviour of adding the dynamic user to group 0.
 RUN useradd -G 0 $USERNAME
-ENV HOME /home/${USERNAME}
+ENV HOME=/home/${USERNAME}
 
 # Make and set the working directory
 RUN mkdir -p /home/runner \
@@ -59,7 +51,8 @@ COPY images/software/kubectl.sh kubectl.sh
 RUN bash kubectl.sh && rm kubectl.sh
 
 # Install helm
-RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+COPY images/software/get-helm.sh /helm.sh
+RUN bash /helm.sh && rm /helm.sh
 
 RUN test -n "$TARGETPLATFORM" || (echo "TARGETPLATFORM must be set" && false)
 
@@ -77,4 +70,22 @@ RUN curl -f -L -o runner-container-hooks.zip https://github.com/actions/runner-c
   && unzip ./runner-container-hooks.zip -d ./k8s \
   && rm runner-container-hooks.zip
 
+# Squash it!
+FROM scratch AS final
+
+LABEL org.opencontainers.image.source="https://github.com/some-natalie/kubernoodles"
+LABEL org.opencontainers.image.path="images/ubi8.Dockerfile"
+LABEL org.opencontainers.image.title="ubi8"
+LABEL org.opencontainers.image.description="A RedHat UBI 8 based runner image for GitHub Actions"
+LABEL org.opencontainers.image.authors="Natalie Somersall (@some-natalie)"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.documentation="https://github.com/some-natalie/kubernoodles/README.md"
+
+# The UID env var should be used in child Containerfile.
+ENV UID=1000
+ENV GID=0
+ENV USERNAME="runner"
+
 USER $USERNAME
+
+COPY --from=build / /

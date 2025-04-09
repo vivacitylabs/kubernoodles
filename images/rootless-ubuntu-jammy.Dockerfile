@@ -1,12 +1,12 @@
-FROM ubuntu:22.04
+FROM ubuntu:22.04 AS build
 
 # GitHub runner arguments
-ARG RUNNER_VERSION=2.321.0
+ARG RUNNER_VERSION=2.322.0
 ARG RUNNER_CONTAINER_HOOKS_VERSION=0.6.2
 
 # Docker and Compose arguments
-ARG DOCKER_VERSION=27.3.1
-ARG COMPOSE_VERSION=v2.31.0
+ARG DOCKER_VERSION=28.0.1
+ARG COMPOSE_VERSION=v2.34.0
 
 # Dumb-init version
 ARG DUMB_INIT_VERSION=1.2.5
@@ -51,10 +51,12 @@ RUN apt-get update \
   libyaml-dev \
   locales \
   lsb-release \
+  openssh-client \
   openssl \
   pigz \
   pkg-config \
   software-properties-common \
+  ssh \
   time \
   tzdata \
   uidmap \
@@ -62,12 +64,8 @@ RUN apt-get update \
   wget \
   xz-utils \
   zip \
-  openssh-client \
-  ssh \
   && apt-get clean \
   && rm -rf /var/lib/apt/lists/*
-
-
 
 # Runner user
 RUN adduser --disabled-password --gecos "" --uid 1000 runner
@@ -95,6 +93,23 @@ RUN bash /node20.sh && rm /node20.sh
 COPY images/software/yarn.sh /yarn.sh
 RUN bash /yarn.sh && rm /yarn.sh
 
+
+# # Set up nodejs 16
+COPY images/software/node16.sh /node16.sh
+RUN bash /node16.sh && rm /node16.sh
+
+# # Set up nodejs 18
+COPY images/software/node18.sh /node18.sh
+RUN bash /node18.sh && rm /node18.sh
+
+# # Set up nodejs 20
+COPY images/software/node20.sh /node20.sh
+RUN bash /node20.sh && rm /node20.sh
+
+# # Set up yarn
+COPY images/software/yarn.sh /yarn.sh
+RUN bash /yarn.sh && rm /yarn.sh
+
 # Install GitHub CLI
 COPY images/software/gh-cli.sh /gh-cli.sh
 RUN bash /gh-cli.sh && rm /gh-cli.sh
@@ -104,7 +119,8 @@ COPY images/software/kubectl.sh /kubectl.sh
 RUN bash /kubectl.sh && rm /kubectl.sh
 
 # Install helm
-RUN curl https://raw.githubusercontent.com/helm/helm/main/scripts/get-helm-3 | bash
+COPY images/software/get-helm.sh /helm.sh
+RUN bash /helm.sh && rm /helm.sh
 
 # Install Docker
 RUN export DOCKER_ARCH=x86_64 \
@@ -147,17 +163,39 @@ RUN mkdir -p /run/user/1000 \
   && chown runner:runner /home/runner/externals \
   && chmod a+x /home/runner/externals
 
+# Docker-compose installation
+RUN ARCH=$(echo ${TARGETPLATFORM} | cut -d / -f2) \
+  && export ARCH \
+  && if [ "$ARCH" = "arm64" ]; then export ARCH=aarch64 ; fi \
+  && if [ "$ARCH" = "amd64" ]; then export ARCH=x86_64 ; fi \
+  && curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-${ARCH}" -o /home/runner/bin/docker-compose ; \
+  chmod +x /home/runner/bin/docker-compose
+
+# squash it!
+FROM scratch AS final
+
+# Label all the things!!
+LABEL org.opencontainers.image.source="https://github.com/some-natalie/kubernoodles"
+LABEL org.opencontainers.image.path="images/rootless-ubuntu-jammy.Dockerfile"
+LABEL org.opencontainers.image.title="rootless-ubuntu-jammy"
+LABEL org.opencontainers.image.description="An Ubuntu Jammy (22.04 LTS) based runner image for GitHub Actions, rootless"
+LABEL org.opencontainers.image.authors="Natalie Somersall (@some-natalie)"
+LABEL org.opencontainers.image.licenses="MIT"
+LABEL org.opencontainers.image.documentation="https://github.com/some-natalie/kubernoodles/README.md"
+
+# Set environment variables needed at build or run
+ENV DEBIAN_FRONTEND=noninteractive
+ENV RUNNER_MANUALLY_TRAP_SIG=1
+ENV ACTIONS_RUNNER_PRINT_LOG_TO_STDOUT=1
+
 # Add the Python "User Script Directory" to the PATH
+ENV HOME=/home/runner
 ENV PATH="${PATH}:${HOME}/.local/bin:/home/runner/bin"
 ENV ImageOS=ubuntu22
-
-ENV HOME=/home/runner
 
 # No group definition, as that makes it harder to run docker.
 USER runner
 
-# Docker-compose installation
-RUN curl --create-dirs -L "https://github.com/docker/compose/releases/download/${COMPOSE_VERSION}/docker-compose-Linux-x86_64" -o /home/runner/bin/docker-compose ; \
-  chmod +x /home/runner/bin/docker-compose
+COPY --from=build / /
 
 ENTRYPOINT ["/usr/local/bin/dumb-init", "--"]

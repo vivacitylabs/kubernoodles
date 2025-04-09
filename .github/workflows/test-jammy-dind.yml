@@ -128,7 +128,7 @@ jobs:
 
   remove-deploy:
     name: Delete test image deployment
-    runs-on: deploy-controller # use a self-hosted runner to remove the image
+    runs-on: ubuntu-24.04-arm # use a self-hosted runner to remove the image
     needs: [test]
     environment: test
     if: always()

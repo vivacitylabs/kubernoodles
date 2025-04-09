@@ -47,7 +47,7 @@ jobs:
 
   deploy:
     name: Deploy test image to `test-runners` namespace
-    runs-on: deploy-controller # use a self-hosted runner to deploy the image
+    runs-on: ubuntu-24.04-arm # use a self-hosted runner to deploy the image
     needs: [build]
     environment: test
 

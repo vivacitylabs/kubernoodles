@@ -16,7 +16,8 @@ jobs:
       attestations: write # to create the attestations for the container
     strategy:
       matrix:
-        os: [rootless-ubuntu-jammy, rootless-ubuntu-numbat, ubi8, ubi9, wolfi]
+        os: [rootless-ubuntu-jammy] # [rootless-ubuntu-jammy, ubi8, ubi9, wolfi]
+       # arch: [amd64] # [amd64, arm64] // TODO: do we need to specify this?
     continue-on-error: true
 
     steps:

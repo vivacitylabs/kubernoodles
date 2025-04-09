@@ -37,35 +37,35 @@ SHELL ["/bin/bash", "-o", "pipefail", "-c"]
 
 # Install base software
 RUN apt-get update \
-    && apt-get install -y --no-install-recommends \
-    apt-transport-https \
-    apt-utils \
-    ca-certificates \
-    curl \
-    gcc \
-    git \
-    gnupg \
-    iproute2 \
-    iptables \
-    jq \
-    libyaml-dev \
-    locales \
-    lsb-release \
-    openssh-client \
-    openssl \
-    pigz \
-    pkg-config \
-    software-properties-common \
-    ssh \
-    time \
-    tzdata \
-    uidmap \
-    unzip \
-    wget \
-    xz-utils \
-    zip \
-    && apt-get clean \
-    && rm -rf /var/lib/apt/lists/*
+  && apt-get install -y --no-install-recommends \
+  apt-transport-https \
+  apt-utils \
+  ca-certificates \
+  curl \
+  gcc \
+  git \
+  gnupg \
+  iproute2 \
+  iptables \
+  jq \
+  libyaml-dev \
+  locales \
+  lsb-release \
+  openssh-client \
+  openssl \
+  pigz \
+  pkg-config \
+  software-properties-common \
+  ssh \
+  time \
+  tzdata \
+  uidmap \
+  unzip \
+  wget \
+  xz-utils \
+  zip \
+  && apt-get clean \
+  && rm -rf /var/lib/apt/lists/*
 
 # Runner user
 RUN adduser --disabled-password --gecos "" --uid 1000 runner
